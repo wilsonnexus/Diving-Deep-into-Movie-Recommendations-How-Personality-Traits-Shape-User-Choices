@@ -1,0 +1,223 @@
+---
+title: 'Diving Deep into Movie Recommendations: How Personality Traits Shape User
+  Choices'
+author: "Wilson Neira"
+date: "2022-12-14"
+output:
+  html_document: default
+  pdf_document: default
+fontsize: 12pt
+---
+
+```{r setup, include=FALSE}
+# tinytex::install_tinytex() # Uncomment when needed
+library(readr)
+X2018_personality_data <- read_csv("C:/Users/Owner/Downloads/archive (1)/2018-personality-data.csv")
+# View(X2018_personality_data)
+```
+
+# 1. Dataset Description
+## 1.1 Source
+The dataset is provided by Gabriel Atkin in Kaggle, it is based of the "User Personality and User Satisfaction with Recommender Systems" research paper by Tien T. Nguyen et al. In their research they demonstrated that individual users’ preferences for the level of diversity, popularity, and serendipity in recommendation lists cannot be inferred from their ratings alone. They demonstrate that they can extract strong signals about individual preferences for recommendation diversity, popularity and serendipity by measuring their personality traits. The dataset comes from an online experiment they conducted with over 1,800 users for six months on a live recommendation system. In their experiment, they asked users to evaluate a list of movie recommendations with different levels of diversity, popularity, and serendipity. Then, they assessed users’ personality traits using the Ten-item Personality Inventory (TIPI). 
+They found that ratings-based recommended systems may often fail to deliver preferred levels of diversity, popularity, and serendipity for their users (e.g. users with high-serendipity preferences). They also found that users with different personalities have different preferences for these three recommendation properties. Their work suggests that they improve user satisfaction when they integrate users’ personality traits into the process of generating recommendations (Nguyen et al.).
+
+The personality-data contains the header which described as follows and infomration about the dataset was provided in Kaggle by Gabriel Atkin:
+
+User personality: Prior work in user personality has identified five personality traits - openness to new experiences, conscientiousness, extraversion (or introversion), neuroticism and agreeableness (John and Srivastava 1999; McCrae and Costa 1987; Gosling et al. 2003). 
+
+## 1.2 Variable Descriptions
+Userid: Hashed user_id to describe each individual.
+
+Openness: Assessment score (from 1 to 7) assessing user tendency to prefer new experience. 1 means the user has tendency NOT to prefer new experience, 7 means the user has tendency to prefer new experience.
+
+Agreeableness: An assessment score (from 1 to 7) assessing user tendency to be compassionate and cooperative rather than suspicious and antagonistic towards others. 1 means the user has tendency to NOT be compassionate and cooperative. 7 means the user has tendency to be compassionate and cooperative.
+
+Emotional Stability: an assessment score (from 1 to 7) assessing user tendency to have psychological stress. 1 means the user has tendency to have psychological stress, and 7 means the user has tendency to NOT have psychological stress.
+
+Conscientiousness: an assessment score (from 1 to 7) assessing user tendency to be organized and dependable, and show self-discipline. 1 means the user does not have such a tendency, and 7 means the user has such tendency.
+
+Extraversion: an assessment score (from 1 to 7) assessing user tendency to be outgoing. 1 means the user does not have such a tendency, and 7 means the user has such a tendency.
+
+Assigned Metric: one of the follows (serendipity, popularity, diversity, default). Each user, besides being assessed their personality, was evaluated their preferences for a list of 12 movies manipulated with serendipity, popularity, diversity value or none (default option).
+
+By diversity it is meant on how much the movie varies from list to list, making the list less biased. Therefore, we can estimate the diversity of a set by taking the average of all pairwise distances of all items in the set. We are interested in content-based distances, which we measure using the taggenome information space. There are three different conditions for levels of diversity - high, medium and low. 
+
+Popularity indicates how commonly known all the items in a set of recommendations are.They can estimate the popularity of an item by computing how many users have consumed (or rated) the item in the same system. There are three different conditions for levels of popularity- high, medium and low.
+
+Serendipity indicates how different all the items in a set of recommendations are when compared with items the user recently consumed (or rated). It can estimate the serendipity of a recommendation list by taking the average of all pair-wise distances of between one item in the recommendation list, and one item the user has rated. They are interested in tag-genome distances, similar to the calculation of diversity. There are three different levels of serendipity - high, medium and low. 
+
+Assigned Condition: one of the follows (high, medium, low). Based on the assigned metric, and this assigned condition, the list of movies was generated for the users. For example: if the assigned metric is serendipity and the assigned condition is high, the movies in the list are highly serendipitous. They document how we manipulated the movie list based on the assigned condition and assigned metric in page 6 of our research paper mentioned above.
+
+Movie_x (x is from 1 to 12): The list consists of 12 movies. These fields contain the ids of the twelve movies in the list.
+The movie selection for these lists change which is apparent in the dataset. For the movie selection they conducted a study on a live movie recommendation system with more than 1800 users. They showed users a list of 12 personalized movie recommendations. They varied the levels of diversity, popularity, and serendipity of these lists. They then asked the users to rate how satisfied they were with the levels of diversity, popularity, and serendipity of these recommendation lists, and how much they would enjoy watching the movies in the lists. Finally, thye assessed users’ personality using the Ten-item Personality Inventory proposed by (Gosling et al. 2003). They used these questions from Gosling et al. because the questions were widely used to access the personality of a user in research community.
+
+Predictedratingx (x is from 1 to 12): Variable that provides the predicted rating of the corresponding movie_x for the user.
+
+Is_Personalized: The response of the user to the question This list is personalized for me. Users answered on the 5-point Likert scale. (1: Strongly Disagree, 5: Strongly Agree).
+
+Enjoy_watching: The response of the user to the question This list contains movies I think I enjoyed watching. Users answered on the 5-point Likert scale. (1: Strongly Disagree, 5: Strongly Agree)
+
+
+```{r Libraries, include=FALSE}
+library(tidyverse)
+library(cowplot)
+```
+
+# 2. Exploratory Analysis Questions
+
+Broad Question:
+Which personality is most drawn to liking whatever movie in general because their enjoyment of entertainment expands among bad or good?
+Narrowed Down: 
+1. Which personality, on average, gives movies the highest predicted rating?
+2. Which personality, on average, claims to enjoy watching any movie the most?
+
+# 3. Data Analysis Description
+For my data analysis I produced the following boxplots since it allowed me to visualize which personality traits gave higher rating to movies. I first did this boxplot graph to the predicted ratings since ratings can tell to an extent whether a person liked a movie. I first used range values for each personality trait scale, however they became to similar to each other, making them hard to differentiate. Therefore, using each point in the given personality scale made it better to tell the difference among personality traits. I took the averag of the predicted rating since graphing each rating wouldn't be pratical for such a large dataset.
+
+```{r PredictedRating, echo=FALSE}
+x2018_avg_predicted_rating <- X2018_personality_data %>% 
+  mutate(avg_predicted_rating = (predicted_rating_1+predicted_rating_2+predicted_rating_3+predicted_rating_4+predicted_rating_5+predicted_rating_6+predicted_rating_7+predicted_rating_8+predicted_rating_9+predicted_rating_10+predicted_rating_11+predicted_rating_12)/12)
+
+openness_highest_predicted_rating <- x2018_avg_predicted_rating %>%
+  select(openness,avg_predicted_rating) %>%
+  ggplot(aes(x= factor(openness),y=avg_predicted_rating)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(3.25,5.25)) +
+  labs(title = NULL, x = "Openness", y = "PredictAvgRating")
+
+
+
+agreeableness_highest_predicted_rating <- x2018_avg_predicted_rating %>%
+  select(agreeableness, avg_predicted_rating) %>%
+  ggplot(aes(x= factor(agreeableness),y=avg_predicted_rating)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(3.25,5.25)) +
+  labs(title = NULL, x = "Agreeableness", y = "PredictAvgRating")
+
+
+
+emotional_stability_highest_predicted_rating <- x2018_avg_predicted_rating %>%
+  select(emotional_stability, avg_predicted_rating) %>%
+  ggplot(aes(x= factor(emotional_stability),y=avg_predicted_rating)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(3.25,5.25)) +
+  labs(title = NULL, x = "Emotional Stability", y = "PredictAvgRating")
+
+
+
+
+conscientiousness_highest_predicted_rating <- x2018_avg_predicted_rating %>%
+  select(conscientiousness, avg_predicted_rating) %>%
+  ggplot(aes(x= factor(conscientiousness),y=avg_predicted_rating)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(3.25,5.25)) +
+  labs(title = NULL, x = "Conscientiousness", y = "PredictAvgRating")
+
+
+
+extraversion_highest_predicted_rating <- x2018_avg_predicted_rating %>%
+  select(extraversion, avg_predicted_rating) %>%
+  ggplot(aes(x= factor(extraversion),y=avg_predicted_rating)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(3.25,5.25)) +
+  labs(title = NULL, x = "Extraversion", y = "PredictAvgRating")
+
+
+title <- ggdraw() + 
+  draw_label(
+    "Personality Average Prediction Ratings",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    plot.margin = margin(0, 0, 8, 0)
+  )
+
+graphs <- plot_grid(openness_highest_predicted_rating, agreeableness_highest_predicted_rating,emotional_stability_highest_predicted_rating, conscientiousness_highest_predicted_rating,extraversion_highest_predicted_rating,labels=c("", "", "", "", ""),  ncol = 2, nrow = 3)
+plot_grid(title,graphs,ncol = 1,rel_heights = c(20, 360))
+
+```
+Figure 1.
+
+For my data analysis I produced the following boxplot graph to the the likert scale of how much a user enjoyed the movie since answers from the user's themselves could be a good measure to tell wether they enjoyed a movie. I had to scale this more than my previous boxplot due to the value difference, however they became to similar to each other. Both graphs seemed to follow a patern except for Agreebleness.
+
+```{r EnjoyedWatching, echo=FALSE}
+openness_highest_predicted_rating <- X2018_personality_data %>% 
+  mutate(openness_range = ifelse(openness %in% 5.5:7,"5.5-7",ifelse(openness %in% 3.5:5,"3.5-5","0-3"))) %>%
+  select(openness,enjoy_watching) %>%
+  ggplot(aes(x= factor(openness),y=enjoy_watching)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(0,5.25)) +
+  labs(title = NULL, x = "Openness", y = "Enjoy Watching")
+
+
+agreeableness_highest_predicted_rating <- X2018_personality_data %>% 
+  mutate(agreeableness_range = ifelse(agreeableness %in% 6.5:7,"6.5-7",ifelse(agreeableness %in% 5.5:6,"5.5-6",ifelse(agreeableness %in% 4.5:5,"4.5-5",ifelse(agreeableness %in% 3.5:4,"3.5-4",ifelse(agreeableness %in% 2.5:3,"2.5-3",ifelse(agreeableness %in% 1.5:2,"1.5-2","0-1"))))))) %>%
+  select(agreeableness,enjoy_watching) %>%
+  ggplot(aes(x= factor(agreeableness),y=enjoy_watching)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(0,5.25)) +
+  labs(title = NULL, x = "Agreeablenesss", y = "Enjoy Watching")
+
+
+emotional_stability_highest_predicted_rating <- X2018_personality_data %>% 
+  mutate(emotional_stability_range = ifelse(emotional_stability %in% 5.5:7,"5.5-7",ifelse(emotional_stability %in% 3.5:5,"3.5-5","0-3"))) %>%
+  select(emotional_stability,enjoy_watching) %>%
+  ggplot(aes(x= factor(emotional_stability),y=enjoy_watching)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(0,5.25)) +
+  labs(title = NULL, x = "Emotional Stability", y = "Enjoy Watching")
+
+
+
+conscientiousness_highest_predicted_rating <- X2018_personality_data %>% 
+  mutate(conscientiousness_range = ifelse(conscientiousness %in% 5.5:7,"5.5-7",ifelse(conscientiousness %in% 3.5:5,"3.5-5","0-3"))) %>%
+  select(conscientiousness,enjoy_watching) %>%
+  ggplot(aes(x= factor(conscientiousness),y=enjoy_watching)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(0,5.25)) +
+  labs(title = NULL, x = "Conscientiousness", y = "Enjoy Watching")
+
+
+extraversion_highest_predicted_rating <- X2018_personality_data %>% 
+  mutate(extraversion_range = ifelse(extraversion %in% 5.5:7,"5.5-7",ifelse(extraversion %in% 3.5:5,"3.5-5","0-3"))) %>%
+  select(extraversion,enjoy_watching) %>%
+  ggplot(aes(x= factor(extraversion),y=enjoy_watching)) + 
+  geom_boxplot() +
+  coord_cartesian(ylim = c(0,5.25)) +
+  labs(title = NULL, x = "Extraversion", y = "Enjoy Watching")
+
+
+title <- ggdraw() + 
+  draw_label(
+    "Personality Average Watching Enjoyment",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    plot.margin = margin(0, 0, 8, 0)
+  )
+
+graphs <- plot_grid(openness_highest_predicted_rating, agreeableness_highest_predicted_rating,emotional_stability_highest_predicted_rating, conscientiousness_highest_predicted_rating,extraversion_highest_predicted_rating,labels=c("", "", "", "", ""),  ncol = 2, nrow = 3)
+plot_grid(title,graphs,ncol = 1,rel_heights = c(20, 360))
+
+```
+Figure 2.
+
+# 4. Discussion
+
+The results seemed unexpected to me at first since I thought that the surrounding boxplots would follow a pattern of the greatest rating, due to closeness. What I am thinking this did not happen is either due to that there was not enough data provided or personalities are much more complex than expected and anything as a small point difference can make a difference in preferences.
+
+
+
+# 5. Conclusion 
+
+With my analysis I have concluded that people in the dataset are more generally inclined to like any movies watched. From my results it is noticed that people with personality traits such as a high tendency to extraversion, low tendency to emotional stability, low tendency to conscientiousness, and low tendency to openness are more likely to like or better rate movies in general. The outsider of my results is Agreeableness which varied a lot when compared to both boxplots.
+
+# 6. References
+
+https://www.kaggle.com/datasets/arslanali4343/top-personality-dataset
+https://link.springer.com/article/10.1007/s10796-017-9782-y
+https://wilkelab.org/cowplot/articles/plot_grid.html
